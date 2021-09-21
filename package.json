@@ -1,0 +1,10 @@
+{
+  "name": "b0tpr355",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "start": "node ./server/index.js"
+  },
+  "author": "Aman Vishnani",
+  "license": "MIT"
+}
