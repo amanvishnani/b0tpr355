@@ -5,12 +5,15 @@ const chokidar = require('chokidar');
 module.exports = class FileManager {
 
     #id = 0;
+    #watcher = null;
+    #subscribers = []
 
     constructor() {
         this.fileIndex = {};
         this.fileMap = {
             isRoot: true,
-            children: []
+            children: [],
+            id: this._getUniqueId()
         };
         this.pathSeperator = path.sep // OS Specific
         this.directories = [];
@@ -24,6 +27,15 @@ module.exports = class FileManager {
 
     _getUniqueId() {
         return this.#id++;
+    }
+
+    getNode(absolutePath) {
+        for (const node of Object.values(this.fileIndex)) {
+            if(node.absolutePath === absolutePath) {
+                return node;
+            }
+        }
+        return null;
     }
 
     async init(directories) {
@@ -50,8 +62,8 @@ module.exports = class FileManager {
         this.watchDirectories();
     }
 
-    addDirectory(folderName, path, node = this.fileMap) {
-        this.addChild(folderName, path, true, node)
+    addDirectory(folderName, folderPath, node = this.fileMap) {
+        this.addChild(folderName, folderPath, true, node)
     }
 
     addChild(name, absolutePath, isDirectory, node = this.fileMap) {
@@ -60,7 +72,8 @@ module.exports = class FileManager {
             isDirectory,
             absolutePath,
             name,
-            id
+            id,
+            parentId: node.id
         }
 
         if(isDirectory === true) {
@@ -75,10 +88,10 @@ module.exports = class FileManager {
         const childrenWithPath = node.children.filter(child => dirPath.startsWith(child.absolutePath));
         for (const child of childrenWithPath) {
             if (child.absolutePath === dirPath) {
-                // Reached node that was supposed to be expanded
+                // Reached node that was supposed to be expanded]
                 const dirItems = await fs.readdir(dirPath, { withFileTypes: true });
                 for (const item of dirItems) {
-                    const filePath = path.resolve(`${dirPath}${this.pathSeperator}${item.name}`);
+                    const filePath = path.resolve(path.join(dirPath, item.name));
                     if(item.isDirectory()) {
                         this.addDirectory(item.name, filePath, child);
                     } else {
@@ -128,22 +141,94 @@ module.exports = class FileManager {
         }
     }
 
+    unlinkNode(node) {
+        const nodePath = node.absolutePath;
+        if(node.isDirectory) {
+            for (const childNode of node.children) {
+                this.unlinkNode(childNode);
+            }
+        }
+        console.log(`File/Directory removed -> ${nodePath}`);
+        const parentNode = this.fileIndex[node.parentId];
+        parentNode.children = parentNode.children.filter(child => child.absolutePath !== nodePath);
+        delete this.fileIndex[node.id];
+    }
+
+    async _handelAdd(nodePath) {
+        const filePath = path.resolve(nodePath);
+        const dirname = path.dirname(filePath);
+        const basename = path.basename(filePath);
+        const dirNode = this.getNode(dirname);
+        if(dirNode === null || !dirNode.isExpanded) {
+            // Don't index yet. We're not rendering
+            return false;
+        }
+
+        let stat = await fs.stat(filePath);
+        if(stat.isDirectory()) {
+            this.addDirectory(basename, filePath, dirNode);
+        } else {
+            this.addChild(basename, filePath, false, dirNode);
+        }
+        console.log(`File/Dir Added -> ${path.resolve(filePath)}`);
+        return true;
+    }
+
     watchDirectories() {
-        let watcher = chokidar.watch(this.directories)
-        watcher.on('add', (path) => {
-            console.log(`File Added -> ${path}`);
+        this.#watcher = chokidar.watch(this.directories)
+        this.#watcher.on('add', async (filePath) => {
+            const result = await this._handelAdd(filePath);
+            if(result) {
+                this.notifyChange();
+            }
         });
 
-        watcher.on('addDir', (path) => {
-            console.log(`Dir Added -> ${path}`);
+        this.#watcher.on('addDir', async (filePath) => {
+            const result = await this._handelAdd(filePath);
+            if(result) {
+                this.notifyChange();
+            }
         });
 
-        watcher.on('unlink', (path) => {
-            console.log(`File removed -> ${path}`);
+        this.#watcher.on('unlink', (filePath) => {
+            this._handelUnlinkEvent(filePath);
         });
 
-        watcher.on('unlinkDir', (path) => {
-            console.log(`Dir removed -> ${path}`);
+        this.#watcher.on('unlinkDir', (filePath) => {
+            this._handelUnlinkEvent(filePath);
         });
     }
+
+    _handelUnlinkEvent(filePath) {
+        const nodePath = path.resolve(filePath);
+        const node = this.getNode(nodePath)
+        if (node) {
+            this.unlinkNode(node);
+            this.notifyChange()
+        }
+    }
+
+    subscribe(socket) {
+        this.#subscribers.push(socket);
+        socket.on('expand', async (node) => {
+            await this.expandPath(node.absolutePath)
+            socket.emit('message', this.fileMap);
+        });
+    
+        socket.on('collapse', async (node) => {
+            await this.collapsePath(node.absolutePath)
+            socket.emit('message', this.fileMap);
+        });
+    }
+
+    unsubscribe(socket) {
+        this.#subscribers = this.#subscribers.filter(sock => sock.id !== socket.id);
+    }
+
+    notifyChange() {
+        for (const sock of this.#subscribers) {
+            sock.emit('message', this.fileMap);
+        }
+    }
+
 }
