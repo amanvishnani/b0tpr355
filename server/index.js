@@ -1,25 +1,19 @@
-const fs = require('fs').promises;
-const path = require('path');
+const MyFileSystem = require('./MyFileSystem')
 const [node, fileName, ...directories] = process.argv;
 
 console.log(`${directories.length}`)
 
-// Root
-const fileSystem = {}
 
 async function main() {
-    for (const dir of directories) {
-        try {
-            const filePath = path.resolve(dir);
-            const dirName = path.basename(filePath);
-            fileSystem[dirName] = await fs.readdir(dir, { withFileTypes: true });
-        } catch (error) {
-            if(error.code === 'ENOENT') {
-                console.log(`Invalid folder path: ${dir}. Skipping!`)
-            }
-        }
-    }
-    console.log(fileSystem);
+    // Root
+    const fileSystem = await MyFileSystem.newInstance(directories);
+    await fileSystem.expandPath('d:\\Projects\\b0tpr355\\server');
+    await fileSystem.expandPath('d:\\Projects\\b0tpr355');
+    await fileSystem.expandPath('d:\\Projects\\b0tpr355\\.git');
+    console.log(fileSystem.fileIndex)
+    await fileSystem.collapsePath('d:\\Projects\\b0tpr355\\.git');
+    console.log(fileSystem.fileMap)
+    console.log(fileSystem.fileIndex)
 }
 
 main();
