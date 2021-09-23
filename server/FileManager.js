@@ -63,9 +63,9 @@ module.exports = class FileManager {
             id
         }
 
-        if(isDirectory) {
-            child.isExpanded = false,
-            child.children = []
+        if(isDirectory === true) {
+            child.isExpanded = false;
+            child.children = [];
         }
         node.children.push(child);
         this.fileIndex[id] = child;
