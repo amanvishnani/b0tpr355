@@ -6,5 +6,8 @@
     "start": "node ./server/index.js . ~/ ./server/index.js ./server"
   },
   "author": "Aman Vishnani",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "chokidar": "^3.5.2"
+  }
 }

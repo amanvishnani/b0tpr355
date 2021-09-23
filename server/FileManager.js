@@ -1,5 +1,6 @@
 const fs = require('fs').promises;
 const path = require('path');
+const chokidar = require('chokidar');
 
 module.exports = class FileManager {
 
@@ -12,6 +13,7 @@ module.exports = class FileManager {
             children: []
         };
         this.pathSeperator = path.sep // OS Specific
+        this.directories = [];
     }
 
     static async newInstance(directories) {
@@ -25,6 +27,7 @@ module.exports = class FileManager {
     }
 
     async init(directories) {
+
         for (const dir of directories) {
             try {
                 const filePath = path.resolve(dir);
@@ -32,7 +35,8 @@ module.exports = class FileManager {
                 if(dirStat.isDirectory()) {
                     const dirName = path.basename(filePath);
                     this.addDirectory(dirName, filePath);
-                } 
+                }
+                this.directories.push(dir);
             } catch (error) {
                 if(error.code === 'ENOENT') {
                     console.log(`Invalid folder path: ${dir}. Skipping!`)
@@ -43,7 +47,7 @@ module.exports = class FileManager {
                 }
             }
         }
-        // console.log(this.fileMap);
+        this.watchDirectories();
     }
 
     addDirectory(folderName, path, node = this.fileMap) {
@@ -122,5 +126,24 @@ module.exports = class FileManager {
             node.children = [];
             node.isExpanded = false;
         }
+    }
+
+    watchDirectories() {
+        let watcher = chokidar.watch(this.directories)
+        watcher.on('add', (path) => {
+            console.log(`File Added -> ${path}`);
+        });
+
+        watcher.on('addDir', (path) => {
+            console.log(`Dir Added -> ${path}`);
+        });
+
+        watcher.on('unlink', (path) => {
+            console.log(`File removed -> ${path}`);
+        });
+
+        watcher.on('unlinkDir', (path) => {
+            console.log(`Dir removed -> ${path}`);
+        });
     }
 }
