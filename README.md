@@ -36,7 +36,7 @@ Run backend service with the following command \
 
 # Tach Stack
 1. React (Frontend App)
-2. Node.js Backend service
+2. Node.js (14.x) Backend service
 3. Material UI for Tree component
 4. Chokidar for watching file changes
 5. Socket.io for Push-based architecture

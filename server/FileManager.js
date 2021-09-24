@@ -13,7 +13,7 @@ module.exports = class FileManager {
         this.fileMap = {
             isRoot: true,
             children: [],
-            id: this._getUniqueId()
+            id: this.#getUniqueId()
         };
         this.pathSeperator = path.sep // OS Specific
         this.directories = [];
@@ -25,7 +25,7 @@ module.exports = class FileManager {
         return instance;
     }
 
-    _getUniqueId() {
+    #getUniqueId() {
         return this.#id++;
     }
 
@@ -58,7 +58,7 @@ module.exports = class FileManager {
     }
 
     addChild(name, absolutePath, isDirectory, node = this.fileMap) {
-        const id = this._getUniqueId();
+        const id = this.#getUniqueId();
         let child = {
             isDirectory,
             absolutePath,
@@ -90,7 +90,7 @@ module.exports = class FileManager {
                     }
                 }
                 child.isExpanded = true;
-                this._watchPath(dirPath);
+                this.#watchPath(dirPath);
             } else if(dirPath.startsWith(child.absolutePath) && (node.isExpanded || node.isRoot === true)) {
                 // Traverse down the tree recursively
                 await this.expandPath(dirPath, child);
@@ -117,12 +117,12 @@ module.exports = class FileManager {
         }
     }
 
-    _watchPath(dirPath) {
+    #watchPath(dirPath) {
         console.log(`Watching Path -> ${dirPath}`);
         this.#watcher.add(dirPath);
     }
 
-    async _unwatchPath(dirPath) {
+    async #unwatchPath(dirPath) {
         console.log(`Unwatching Path -> ${dirPath}`);
         await this.#watcher.unwatch(dirPath);
     }
@@ -140,7 +140,7 @@ module.exports = class FileManager {
             }
             node.children = [];
             node.isExpanded = false;
-            this._unwatchPath(node.absolutePath);
+            this.#unwatchPath(node.absolutePath);
         }
     }
 
@@ -157,7 +157,7 @@ module.exports = class FileManager {
         delete this.fileIndex[node.id];
     }
 
-    async _handelAddEvent(nodePath) {
+    async #handelAddEvent(nodePath) {
         const filePath = path.resolve(nodePath);
         const dirname = path.dirname(filePath);
         const basename = path.basename(filePath);
@@ -177,7 +177,7 @@ module.exports = class FileManager {
         this.notifyChange();
     }
 
-    _handelUnlinkEvent(filePath) {
+    #handelUnlinkEvent(filePath) {
         const nodePath = path.resolve(filePath);
         const node = this.getNode(nodePath)
         if (node) {
@@ -189,19 +189,19 @@ module.exports = class FileManager {
     watchDirectories() {
         this.#watcher = chokidar.watch(this.directories, {depth: 1, ignoreInitial: true})
         this.#watcher.on('add', async (filePath) => {
-            await this._handelAddEvent(filePath);
+            await this.#handelAddEvent(filePath);
         });
 
         this.#watcher.on('addDir', async (filePath) => {
-            await this._handelAddEvent(filePath);
+            await this.#handelAddEvent(filePath);
         });
 
         this.#watcher.on('unlink', (filePath) => {
-            this._handelUnlinkEvent(filePath);
+            this.#handelUnlinkEvent(filePath);
         });
 
         this.#watcher.on('unlinkDir', (filePath) => {
-            this._handelUnlinkEvent(filePath);
+            this.#handelUnlinkEvent(filePath);
         });
     }
 
