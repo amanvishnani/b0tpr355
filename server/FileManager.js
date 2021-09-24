@@ -29,15 +29,6 @@ module.exports = class FileManager {
         return this.#id++;
     }
 
-    getNode(absolutePath) {
-        for (const node of Object.values(this.fileIndex)) {
-            if(node.absolutePath === absolutePath) {
-                return node;
-            }
-        }
-        return null;
-    }
-
     async init(directories) {
 
         for (const dir of directories) {
@@ -166,7 +157,7 @@ module.exports = class FileManager {
         delete this.fileIndex[node.id];
     }
 
-    async _handelAdd(nodePath) {
+    async _handelAddEvent(nodePath) {
         const filePath = path.resolve(nodePath);
         const dirname = path.dirname(filePath);
         const basename = path.basename(filePath);
@@ -183,32 +174,7 @@ module.exports = class FileManager {
             this.addChild(basename, filePath, false, dirNode);
         }
         console.log(`File/Dir Added -> ${path.resolve(filePath)}`);
-        return true;
-    }
-
-    watchDirectories() {
-        this.#watcher = chokidar.watch(this.directories, {depth: 1, ignoreInitial: true})
-        this.#watcher.on('add', async (filePath) => {
-            const result = await this._handelAdd(filePath);
-            if(result) {
-                this.notifyChange();
-            }
-        });
-
-        this.#watcher.on('addDir', async (filePath) => {
-            const result = await this._handelAdd(filePath);
-            if(result) {
-                this.notifyChange();
-            }
-        });
-
-        this.#watcher.on('unlink', (filePath) => {
-            this._handelUnlinkEvent(filePath);
-        });
-
-        this.#watcher.on('unlinkDir', (filePath) => {
-            this._handelUnlinkEvent(filePath);
-        });
+        this.notifyChange();
     }
 
     _handelUnlinkEvent(filePath) {
@@ -218,6 +184,25 @@ module.exports = class FileManager {
             this.unlinkNode(node);
             this.notifyChange()
         }
+    }
+
+    watchDirectories() {
+        this.#watcher = chokidar.watch(this.directories, {depth: 1, ignoreInitial: true})
+        this.#watcher.on('add', async (filePath) => {
+            await this._handelAddEvent(filePath);
+        });
+
+        this.#watcher.on('addDir', async (filePath) => {
+            await this._handelAddEvent(filePath);
+        });
+
+        this.#watcher.on('unlink', (filePath) => {
+            this._handelUnlinkEvent(filePath);
+        });
+
+        this.#watcher.on('unlinkDir', (filePath) => {
+            this._handelUnlinkEvent(filePath);
+        });
     }
 
     subscribe(socket) {
@@ -241,6 +226,15 @@ module.exports = class FileManager {
         for (const sock of this.#subscribers) {
             sock.emit('message', this.fileMap);
         }
+    }
+
+    getNode(absolutePath) {
+        for (const node of Object.values(this.fileIndex)) {
+            if(node.absolutePath === absolutePath) {
+                return node;
+            }
+        }
+        return null;
     }
 
 }
