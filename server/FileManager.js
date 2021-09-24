@@ -99,6 +99,7 @@ module.exports = class FileManager {
                     }
                 }
                 child.isExpanded = true;
+                this._watchPath(dirPath);
             } else if(dirPath.startsWith(child.absolutePath) && (node.isExpanded || node.isRoot === true)) {
                 // Traverse down the tree recursively
                 await this.expandPath(dirPath, child);
@@ -125,6 +126,16 @@ module.exports = class FileManager {
         }
     }
 
+    _watchPath(dirPath) {
+        console.log(`Watching Path -> ${dirPath}`);
+        this.#watcher.add(dirPath);
+    }
+
+    async _unwatchPath(dirPath) {
+        console.log(`Unwatching Path -> ${dirPath}`);
+        await this.#watcher.unwatch(dirPath);
+    }
+
     /**
      * Closes all children by removing from fileIndex
      * Updating child to empty array
@@ -138,6 +149,7 @@ module.exports = class FileManager {
             }
             node.children = [];
             node.isExpanded = false;
+            this._unwatchPath(node.absolutePath);
         }
     }
 
@@ -175,7 +187,7 @@ module.exports = class FileManager {
     }
 
     watchDirectories() {
-        this.#watcher = chokidar.watch(this.directories)
+        this.#watcher = chokidar.watch(this.directories, {depth: 1, ignoreInitial: true})
         this.#watcher.on('add', async (filePath) => {
             const result = await this._handelAdd(filePath);
             if(result) {

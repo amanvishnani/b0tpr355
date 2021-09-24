@@ -95,7 +95,7 @@ function App() {
         defaultCollapseIcon={<ExpandMoreIcon />}
         defaultExpandIcon={<ChevronRightIcon />}
         expanded={expanded}
-        sx={{ height: 240, flexGrow: 1, maxWidth: 400, overflowY: 'auto' }}
+        sx={{ height: "100%", flexGrow: 1, maxWidth: 400, overflowY: 'auto' }}
       >
         {
           renderTree(tree)
